@@ -1,0 +1,3 @@
+WARNING CPU tinggi
+ERROR Database gagal
+WARNING RAM tinggi

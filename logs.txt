@@ -1,0 +1,6 @@
+INFO Server normal
+WARNING CPU tinggi
+INFO Request masuk
+ERROR Database gagal
+WARNING RAM tinggi
+ERROR Redis gagal
