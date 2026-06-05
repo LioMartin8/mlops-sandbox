@@ -50,8 +50,12 @@ def get_warning_server(servers):
 
 
 def save_report(report):
-    with open("servers_report.json", "r") as file:
-        history = json.load(file)
+    try:
+        with open("servers_report.json", "r") as file:
+            history = json.load(file)
+
+    except FileNotFoundError:
+        history = []
 
     history.append(report)
 
