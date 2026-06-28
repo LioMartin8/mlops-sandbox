@@ -1,9 +1,14 @@
 import json
+import os
 from datetime import datetime
 
+data_os = os.environ
 
-def load_servers():
-    with open("servers.json", "r") as file:
+nama_file = data_os.get("SERVER_FILE", "servers.json")
+
+
+def load_servers(file):
+    with open(file, "r") as file:
         data = json.load(file)
 
     return data
@@ -57,9 +62,42 @@ def save_report(report):
     except FileNotFoundError:
         history = []
 
-    history.append(report)
+    total_history = len(history)
+
+    copy_report = report.copy()
+    del copy_report["timestamp"]
+
+    if not history:
+        history.append(report)
+
+    else:
+        last_history = history[-1]
+        copy_history = last_history.copy()
+        del copy_history["timestamp"]
+
+        if copy_history == copy_report:
+            pass
+
+        else:
+            if total_history >= 5:
+                del history[0]
+            history.append(report)
 
     with open("servers_report.json", "w") as file:
+        json.dump(history, file)
+
+
+def save_heartbeat(report):
+    try:
+        with open("heartbeat_report.json", "r") as file:
+            history = json.load(file)
+
+    except FileNotFoundError:
+        history = []
+
+    history.append(report)
+
+    with open("heartbeat_report.json", "w") as file:
         json.dump(history, file)
 
 
@@ -68,7 +106,7 @@ str_datetime = now.strftime("%H:%M:%S")
 
 # exec
 
-servers = load_servers()
+servers = load_servers(nama_file)
 health = count_health(servers)
 heaviest = find_heaviest_server(servers)
 warning_server = get_warning_server(servers)
@@ -81,3 +119,4 @@ health.update(
 )
 
 save_report(health)
+save_heartbeat(health)
