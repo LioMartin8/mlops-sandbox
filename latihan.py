@@ -1,31 +1,155 @@
-def load_servers():
-    servers = [
-        {"nama": "server-1", "cpu": 20, "ram": 30},
-        {"nama": "server-2", "cpu": 90, "ram": 20},
-        {"nama": "server-3", "cpu": 10, "ram": 95},
-        {"nama": "server-4", "cpu": 40, "ram": 50},
-        {"nama": "server-5", "cpu": 99, "ram": 99},
-    ]
-    return servers
+import json
+import os
+from datetime import datetime
+
+
+def load_servers(name_file):
+    with open(name_file, "r") as file:
+        data = json.load(file)
+
+    return data
+
+
+def count_health(servers):
+    health = 0
+    warning = 0
+    for server in servers:
+        if server["cpu"] < 80 and server["ram"] < 80:
+            health += 1
+        else:
+            warning += 1
+
+    count_dic = {"total": len(servers), "healthy": health, "warning": warning}
+    return count_dic
 
 
 def find_heaviest_server(servers):
     heaviest = 0
-    cpu = 0
-    ram = 0
-    nama = ""
+    # name_server = ""
     for server in servers:
-        jumlah = server["cpu"] + server["ram"]
-        if jumlah >= heaviest:
-            heaviest = jumlah
-            cpu = server["cpu"]
-            ram = server["ram"]
-            nama = server["nama"]
+        summation = server["cpu"] + server["ram"]
+        if heaviest < summation:
+            heaviest = summation
+            # name_server = server["nama"]
 
-    report_server = {"nama": nama, "cpu": cpu, "ram": ram}
+            report_server = {
+                "nama": server["nama"],
+                "cpu": server["cpu"],
+                "ram": server["ram"],
+            }
+
     return report_server
 
 
-load = load_servers()
-coba = find_heaviest_server(load)
-print(coba)
+def get_warning_server(servers):
+    warnings = []
+    for server in servers:
+        if server["cpu"] >= 80 or server["ram"] >= 80:
+            warning_server = {
+                "nama": server["nama"],
+                "cpu": server["cpu"],
+                "ram": server["ram"],
+            }
+            warnings.append(warning_server)
+
+    return warnings
+
+
+def load_history():
+    try:
+        with open("servers_report.json", "r") as file:
+            history = json.load(file)
+
+    except FileNotFoundError:
+        history = []
+    return history
+
+
+def is_report_changed(history, report):
+    copy_report = report.copy()
+    del copy_report["timestamp"]
+
+    if not history:
+        return True
+
+    else:
+        last_history = history[-1]
+        copy_history = last_history.copy()
+        del copy_history["timestamp"]
+
+        return copy_history != copy_report
+
+
+def save_report(report, changed, history):
+    total_history = len(history)
+
+    if changed is True:
+        if total_history >= 5:
+            del history[0]
+
+        history.append(report)
+        with open("server_report.json", "w") as file:
+            json.dump(history, file)
+
+    else:
+        pass
+
+
+def save_heartbeat(report):
+    try:
+        with open("heartbeat_report.json", "r") as file:
+            history = json.load(file)
+
+    except FileNotFoundError:
+        history = []
+
+    history.append(report)
+
+    with open("heartbeat_report.json", "w") as file:
+        json.dump(history, file)
+
+
+def generate_alert(report):
+    if report["warning"] >= 2:
+        warnings = report["warning_servers"]
+        print(f"[ALERT] \n{len(warnings)} servers need attention")
+
+        for warning in warnings:
+            print(f"-  {warning['nama']} (CPU {warning['cpu']} | RAM {warning['ram']})")
+
+        heaviest = report["heaviest_server"]
+        print(
+            f"Heaviest server:\n{heaviest['nama']} (CPU {heaviest['cpu']} | RAM {heaviest['ram']})"
+        )
+
+    else:
+        print("[OK]\nALL system healthy")
+
+
+def main():
+    nama_file = os.environ.get("SERVER_FILE", "servers.json")
+    now = datetime.now()
+    str_datetime = now.strftime("%H:%M:%S")
+
+    servers = load_servers(nama_file)
+    health = count_health(servers)
+    heaviest = find_heaviest_server(servers)
+    warning_server = get_warning_server(servers)
+
+    health.update(
+        {
+            "warning_servers": warning_server,
+            "heaviest_server": heaviest,
+            "timestamp": str_datetime,
+        }
+    )
+    history = load_history()
+    changed = is_report_changed(history, health)
+
+    save_report(health, changed, history)
+    save_heartbeat(health)
+    generate_alert(health)
+
+
+if __name__ == "__main__":
+    main()

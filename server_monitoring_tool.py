@@ -2,13 +2,9 @@ import json
 import os
 from datetime import datetime
 
-data_os = os.environ
 
-nama_file = data_os.get("SERVER_FILE", "servers.json")
-
-
-def load_servers(file):
-    with open(file, "r") as file:
+def load_servers(name_file):
+    with open(name_file, "r") as file:
         data = json.load(file)
 
     return data
@@ -46,45 +42,64 @@ def find_heaviest_server(servers):
 
 
 def get_warning_server(servers):
-    warning_server_name = []
+    warnings = []
     for server in servers:
         if server["cpu"] >= 80 or server["ram"] >= 80:
-            warning_server_name.append(server["nama"])
+            warning_server = {
+                "nama": server["nama"],
+                "cpu": server["cpu"],
+                "ram": server["ram"],
+            }
+            warnings.append(warning_server)
 
-    return warning_server_name
+    return warnings
 
 
-def save_report(report):
+def load_history():
     try:
         with open("servers_report.json", "r") as file:
             history = json.load(file)
 
     except FileNotFoundError:
+        print("[WARNING] servers_report.json not found.")
+        print("[INFO] Starting with empty history. ")
+        history = []
+    except json.JSONDecodeError:
+        print("[WARNING] servers_report.json is corrupted.")
+        print("[INFO] Starting with emptyhis")
         history = []
 
-    total_history = len(history)
+    return history
 
+
+def is_changed_history(report, history):
     copy_report = report.copy()
     del copy_report["timestamp"]
 
     if not history:
-        history.append(report)
+        return True
 
     else:
         last_history = history[-1]
         copy_history = last_history.copy()
         del copy_history["timestamp"]
 
-        if copy_history == copy_report:
-            pass
+        return copy_history != copy_report
 
-        else:
-            if total_history >= 5:
-                del history[0]
-            history.append(report)
 
-    with open("servers_report.json", "w") as file:
-        json.dump(history, file)
+def save_report(report, changed, history):
+    total_history = len(history)
+
+    if changed:
+        if total_history >= 5:
+            del history[0]
+
+        history.append(report)
+        with open("server_report.json", "w") as file:
+            json.dump(history, file)
+
+    else:
+        pass
 
 
 def save_heartbeat(report):
@@ -101,22 +116,48 @@ def save_heartbeat(report):
         json.dump(history, file)
 
 
-now = datetime.now()
-str_datetime = now.strftime("%H:%M:%S")
+def generate_alert(report):
+    if report["warning"] >= 2:
+        warnings = report["warning_servers"]
+        print(f"[ALERT] \n{len(warnings)} servers need attention")
 
-# exec
+        for warning in warnings:
+            print(f"-  {warning['nama']} (CPU {warning['cpu']} | RAM {warning['ram']})")
 
-servers = load_servers(nama_file)
-health = count_health(servers)
-heaviest = find_heaviest_server(servers)
-warning_server = get_warning_server(servers)
-health.update(
-    {
-        "warning_servers": warning_server,
-        "heaviest_server": heaviest,
-        "timestamp": str_datetime,
-    }
-)
+        heaviest = report["heaviest_server"]
+        print(
+            f"Heaviest server:\n{heaviest['nama']} (CPU {heaviest['cpu']} | RAM {heaviest['ram']})"
+        )
 
-save_report(health)
-save_heartbeat(health)
+    else:
+        print("[OK]\nALL system healthy")
+
+
+def main():
+    nama_file = os.environ.get("SERVER_FILE", "servers.json")
+    now = datetime.now()
+    str_datetime = now.strftime("%H:%M:%S")
+
+    servers = load_servers(nama_file)
+    health = count_health(servers)
+    heaviest = find_heaviest_server(servers)
+    warning_server = get_warning_server(servers)
+
+    health.update(
+        {
+            "warning_servers": warning_server,
+            "heaviest_server": heaviest,
+            "timestamp": str_datetime,
+        }
+    )
+
+    history = load_history()
+    changed = is_changed_history(health, history)
+    save_report(health, changed, history)
+
+    save_heartbeat(health)
+    generate_alert(health)
+
+
+if __name__ == "__main__":
+    main()
