@@ -64,10 +64,18 @@ def load_history():
         print("[WARNING] servers_report.json not found.")
         print("[INFO] Starting with empty history. ")
         history = []
+
     except json.JSONDecodeError:
         print("[WARNING] servers_report.json is corrupted.")
         print("[INFO] Starting with emptyhis")
         history = []
+
+    if not isinstance(history, list):
+        print("[WARNING] Invalid history structure.")
+        history = []
+
+    if not "timestamp" in history:
+        print("[WARNING] History of no timestamp")
 
     return history
 
