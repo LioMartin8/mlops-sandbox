@@ -1,0 +1,1 @@
+[{"total": 4, "healthy": 1, "warning": 3, "warning_servers": [{"nama": "server-1", "cpu": 80, "ram": 70}, {"nama": "server-2", "cpu": 30, "ram": 90}, {"nama": "server-3", "cpu": 95, "ram": 85}], "heaviest_server": {"nama": "server-3", "cpu": 95, "ram": 85}, "timestamp": "15:40:57"}]
