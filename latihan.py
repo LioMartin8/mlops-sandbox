@@ -61,29 +61,47 @@ def load_history():
             history = json.load(file)
 
     except FileNotFoundError:
+        print("[WARNING] servers_report.json not found.")
+        print("[INFO] Starting with empty history. ")
         history = []
+
+    except json.JSONDecodeError:
+        print("[WARNING] servers_report.json is corrupted.")
+        print("[INFO] Starting with emptyhis")
+        history = []
+
+    if not isinstance(history, list):
+        print("[WARNING] Invalid history structure.")
+        history = []
+
+    if not "timestamp" in history:
+        print("[WARNING] History of no timestamp")
+
     return history
 
 
-def is_report_changed(history, report):
-    copy_report = report.copy()
-    del copy_report["timestamp"]
+def is_changed_history(report, history):
 
     if not history:
         return True
 
-    else:
-        last_history = history[-1]
-        copy_history = last_history.copy()
+    last_history = history[-1]
+    copy_report = report.copy()
+    copy_history = last_history.copy()
+
+    if "timestamp" in history:
         del copy_history["timestamp"]
 
-        return copy_history != copy_report
+    if "timestamp" in report:
+        del copy_report["timestamp"]
+
+    return copy_history != copy_report
 
 
 def save_report(report, changed, history):
     total_history = len(history)
 
-    if changed is True:
+    if changed:
         if total_history >= 5:
             del history[0]
 
@@ -143,13 +161,27 @@ def main():
             "timestamp": str_datetime,
         }
     )
-    history = load_history()
-    changed = is_report_changed(history, health)
 
+    history = load_history()
+    changed = is_changed_history(health, history)
     save_report(health, changed, history)
+
     save_heartbeat(health)
     generate_alert(health)
 
+
+# Test function
+
+expected = {"total": 2, "healthy": 1, "warning": 1}
+
+servers = [
+    {"nama": "server-1", "cpu": 40, "ram": 50},
+    {"nama": "server-2", "cpu": 90, "ram": 60},
+]
+
+result = count_health(servers)
+
+assert expected == result
 
 if __name__ == "__main__":
     main()
